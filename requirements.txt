@@ -1,0 +1,11 @@
+# It is a best practice to pin dependencies for reproducible builds.
+# These versions were the latest stable versions at the time of writing.
+
+langchain==1.0.7
+langchain-openai==1.0.3
+langchain-google-genai==3.1.0
+langchain-postgres==0.0.16
+langchain-community==0.4.1
+pypdf==6.3.0
+psycopg[binary]==3.2.12
+python-dotenv==1.2.1
