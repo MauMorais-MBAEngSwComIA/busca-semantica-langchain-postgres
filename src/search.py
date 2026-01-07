@@ -67,6 +67,98 @@ class DocumentSearcher:
         self.verbose_print(f"Query expandida:\n{expanded_query[:200]}...")
         return expanded_query
 
+        if strategy == 'iter-retgen':
+            return self._generate_iter_retgen_context(query, k)
+
+    def _generate_iter_retgen_context(self, query: str, k: int) -> str:
+        """
+        Executa o processo ITER-RETGEN (Iterative Retrieval-Generation) com placeholders [MISSING].
+        """
+        self.verbose_print("Iniciando estratégia ITER-RETGEN com refinamento de lacunas...")
+        
+        # 1. Draft Inicial com [MISSING]
+        draft_prompt = """You are an expert assistant with limited initial knowledge.
+        Answer the following question, but you MUST mark MANY specific details as missing.
+        Use [MISSING: ...] markers for:
+        - Specific version numbers and release dates
+        - Technical specifications and parameters
+        - Performance metrics and benchmarks
+        - Comparison data between different versions
+        - Implementation details and code examples
+        - Real-world use cases and case studies
+        - Limitations and known issues
+        - Future roadmap and upcoming features
+        
+        Be thorough in identifying what specific information would make the answer complete.
+        Start with a basic overview but mark MANY specific details as missing.
+        
+        Do not generate more than 5 MISSING Markers.
+        Question: {query}
+        
+        Answer:"""
+        
+        self.verbose_print("Gerando draft inicial...")
+        current_draft = self._generate_text(draft_prompt, {"query": query})
+        self.verbose_print(f"Draft Inicial:\n{current_draft[:200]}...")
+
+        search_query_text = query # Fallback inicial
+        
+        # 2. Ciclo de Refinamento (2 iterações para não estender demais, user pediu similar ao curso)
+        for i in range(2):
+            self.verbose_print(f"--- Iteração {i+1}/2 ---")
+            
+            # Identifica lacunas e gera hipóteses/queries para busca
+            query_prompt = """You received the following draft with gaps:
+            {draft}
+            
+            For each [MISSING: ...] marker, provide information to fill that gap.
+            Format each as: 'For [MISSING: topic]: provide the actual information'
+            Be specific and provide real data when possible.
+            Example: 'For [MISSING: version numbers]: LangChain is at version 0.1.0, LangGraph at 0.2.0'
+            List information for each gap, maximum 5 items."""
+            
+            gap_info = self._generate_text(query_prompt, {"draft": current_draft})
+            self.verbose_print(f"Informação para lacunas (Busca):\n{gap_info[:150]}...")
+            
+            # Recuperação (Retrieval)
+            # Usa a informação gerada (hipotética) + query original para buscar documentos reais
+            search_query_text = f"{query} {gap_info}"
+            docs = self.db.similarity_search_with_score(search_query_text, k=k)
+            retrieved_context = "\n\n".join([d.page_content for d, _ in docs])
+            
+            # Refinamento (Fill Gaps)
+            fill_prompt = """Original question: {query}
+            
+            Current draft (iteration {iteration}):
+            {draft}
+            
+            Information to help fill the gaps:
+            {context}
+            
+            CRITICAL INSTRUCTIONS:
+            1. You MUST replace AT LEAST 1-2 [MISSING: ...] markers with concrete information
+            2. ACTUALLY REPLACE the text '[MISSING: xyz]' with real content - don't keep the marker
+            3. Use the information above to guide what content to add
+            4. Do NOT add any new [MISSING:] markers - only fill or keep existing ones
+            5. If you cannot fill a gap with certainty, keep it as [MISSING: ...]
+            
+            Important: This is iteration {iteration}. You MUST make progress by filling gaps.
+            
+            Rewrite the ENTIRE answer with the [MISSING:] markers replaced:"""
+            
+            current_draft = self._generate_text(fill_prompt, {
+                "query": query, 
+                "draft": current_draft, 
+                "context": retrieved_context,
+                "iteration": i+1
+            })
+            self.verbose_print(f"Draft Refinado ({i+1}):\n{current_draft[:200]}...")
+
+        # O retorno é o texto usado para a BUSCA final dos documentos que serão entregues ao chat
+        # Como o objetivo do search_documents é retornar DOCUMENTOS, usamos a última query de busca enriquecida.
+        # (Opcionalmente poderíamos retornar o próprio draft gerado, mas o contrato da classe é retornar docs)
+        return search_query_text
+
     def search_documents(self, query: str, k: int = 10, strategy: str = 'default'):
         """
         Realiza uma busca por similaridade no banco de vetores.
@@ -74,7 +166,7 @@ class DocumentSearcher:
         """
         if strategy == 'best':
             self.verbose_print("Calculando a melhor estratégia...")
-            strategies = ['default', 'hyde', 'query2doc']
+            strategies = ['default', 'hyde', 'query2doc', 'iter-retgen']
             best_strategy = None
             best_avg_score = float('inf') # Menor é melhor (distância)
             best_results = []
@@ -116,6 +208,8 @@ class DocumentSearcher:
             text_to_search = self._generate_hyde_doc(query)
         elif strategy == 'query2doc':
             text_to_search = self._generate_query2doc_expansion(query)
+        elif strategy == 'iter-retgen':
+            text_to_search = self._generate_iter_retgen_context(query, k)
             
         self.verbose_print(f"Buscando por: '{text_to_search[:100]}...' (Strategy: {strategy})")
         
@@ -149,8 +243,8 @@ if __name__ == '__main__':
         "--strategy",
         type=str,
         default="default",
-        choices=['default', 'hyde', 'query2doc', 'best'],
-        help="Estratégia de busca: 'default', 'hyde', 'query2doc' ou 'best' (padrão: default)."
+        choices=['default', 'hyde', 'query2doc', 'iter-retgen', 'best'],
+        help="Estratégia de busca: 'default', 'hyde', 'query2doc', 'iter-retgen' ou 'best' (padrão: default)."
     )
     parser.add_argument(
         "-v", "--verbose",

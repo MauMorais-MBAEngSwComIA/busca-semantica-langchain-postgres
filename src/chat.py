@@ -43,8 +43,8 @@ def main():
         "--strategy",
         type=str,
         default="default",
-        choices=['default', 'hyde', 'query2doc', 'best'],
-        help="Estratégia de busca: 'default', 'hyde', 'query2doc' ou 'best' (padrão: default)."
+        choices=['default', 'hyde', 'query2doc', 'iter-retgen', 'best'],
+        help="Estratégia de busca: 'default', 'hyde', 'query2doc', 'iter-retgen' ou 'best' (padrão: default)."
     )
     parser.add_argument(
         "--collection", 

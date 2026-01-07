@@ -130,7 +130,8 @@ python -m src.chat --provider openai
     - `default`: Busca vetorial padrão.
     - `hyde`: Gera uma resposta hipotética e busca por similaridade com ela.
     - `query2doc`: Expande a pergunta com uma resposta preliminar antes da busca.
-    - `best`: (Recomendado) Testa as três estratégias (`default`, `hyde`, `query2doc`) e usa a que tiver o melhor score de similaridade (menor distância).
+    - `iter-retgen`: Realiza um ciclo de 2 iterações (Draft -> Busca de Lacunas -> Refinamento) para aprimorar o contexto. Identifica e preenche dados faltantes automaticamente.
+    - `best`: (Recomendado) Testa as quatro estratégias (`default`, `hyde`, `query2doc`, `iter-retgen`) e usa a que tiver o melhor score de similaridade.
     
     Exemplo:
     ```bash
