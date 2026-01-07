@@ -119,4 +119,32 @@ python -m src.chat
 python -m src.chat --provider openai
 ```
 
+**Opções Adicionais do Chat:**
+
+- `--strategy`: Escolha a estratégia de busca.
+    - `default`: Busca vetorial padrão.
+    - `hyde`: Gera uma resposta hipotética e busca por similaridade com ela.
+    - `query2doc`: Expande a pergunta com uma resposta preliminar antes da busca.
+    - `best`: (Recomendado) Testa as três estratégias (`default`, `hyde`, `query2doc`) e usa a que tiver o melhor score de similaridade (menor distância).
+    
+    Exemplo:
+    ```bash
+    python -m src.chat --strategy best
+    ```
+
+- `-v` ou `--verbose`: Exibe logs detalhados do processo. No modo `best`, mostra as estatísticas de comparação.
+    ```bash
+    python -m src.chat --strategy best --verbose
+    ```
+
+- `--help`: Mostra a ajuda completa com todos os parâmetros disponíveis.
+    ```bash
+    python -m src.chat --help
+    ```
+
+- `--collection`: Especifica a coleção de documentos no banco de dados (deve ser a mesma usada na ingestão). Padrão: `documentos_pdf`.
+    ```bash
+    python -m src.chat --collection "minha_colecao"
+    ```
+
 Para sair do chat, digite `sair`.

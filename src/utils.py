@@ -1,6 +1,6 @@
 import os
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_openai import OpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
 def get_connection_string() -> str:
     """Constrói a string de conexão a partir das variáveis de ambiente."""
@@ -33,6 +33,19 @@ def get_embeddings_model(provider: str, verbose: bool = False):
     elif provider == 'openai':
         verbose_print("Usando o modelo de embeddings da OpenAI (text-embedding-3-small).")
         return OpenAIEmbeddings(model="text-embedding-3-small")
+    else:
+        raise ValueError("Provedor inválido. Escolha 'google' ou 'openai'.")
+
+def get_chat_model(provider: str, verbose: bool = False):
+    """Retorna a instância do modelo de chat com base no provedor."""
+    verbose_print = v_print(verbose)
+    
+    if provider == 'google':
+        verbose_print("Usando o modelo de chat do Google (gemini-2.5-flash-lite).")
+        return ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
+    elif provider == 'openai':
+        verbose_print("Usando o modelo de chat da OpenAI (gpt-5-nano).")
+        return ChatOpenAI(model="gpt-5-nano", temperature=0)
     else:
         raise ValueError("Provedor inválido. Escolha 'google' ou 'openai'.")
 

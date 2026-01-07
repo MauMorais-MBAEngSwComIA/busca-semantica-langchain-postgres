@@ -3,22 +3,9 @@ import argparse
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_openai import ChatOpenAI
-from src.utils import check_env_vars, v_print
+from src.utils import check_env_vars, v_print, get_chat_model
 from src.search import DocumentSearcher
 
-def get_chat_model(provider: str, verbose: bool = False):
-    """Retorna a instância do modelo de chat com base no provedor."""
-    verbose_print = v_print(verbose)
-    if provider == 'google':
-        verbose_print("Usando o modelo de chat do Google (gemini-2.5-flash-lite).")
-        return ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite", temperature=0)
-    elif provider == 'openai':
-        verbose_print("Usando o modelo de chat da OpenAI (gpt-5-nano).")
-        return ChatOpenAI(model="gpt-5-nano", temperature=0)
-    else:
-        raise ValueError("Provedor inválido. Escolha 'google' ou 'openai'.")
 
 
 
@@ -52,6 +39,19 @@ def main():
         action="store_true",
         help="Aumenta a verbosidade para exibir logs detalhados e fontes de contexto."
     )
+    parser.add_argument(
+        "--strategy",
+        type=str,
+        default="default",
+        choices=['default', 'hyde', 'query2doc', 'best'],
+        help="Estratégia de busca: 'default', 'hyde', 'query2doc' ou 'best' (padrão: default)."
+    )
+    parser.add_argument(
+        "--collection", 
+        type=str, 
+        default="documentos_pdf", 
+        help="O nome da coleção no banco de dados vetorial (padrão: documentos_pdf)."
+    )
     args = parser.parse_args()
     verbose_print = v_print(args.verbose)
 
@@ -62,7 +62,7 @@ def main():
         return
 
     try:
-        searcher = DocumentSearcher(provider=args.provider, verbose=args.verbose)
+        searcher = DocumentSearcher(provider=args.provider, collection_name=args.collection, verbose=args.verbose)
         llm = get_chat_model(args.provider, args.verbose)
     except (ConnectionError, ValueError) as e:
         print(f"Erro na inicialização: {e}")
@@ -96,7 +96,7 @@ RESPONDA A "PERGUNTA DO USUÁRIO"
     prompt = ChatPromptTemplate.from_template(prompt_template)
     chain = prompt | llm | StrOutputParser()
 
-    print(f"--- Chat com Documento PDF (Provedor: {args.provider}) ---")
+    print(f"--- Chat com Documento PDF (Provedor: {args.provider}, Coleção: {args.collection}) ---")
     print("Digite sua pergunta ou 'sair' para terminar.")
 
     while True:
@@ -107,9 +107,19 @@ RESPONDA A "PERGUNTA DO USUÁRIO"
                 break
             if not question.strip():
                 continue
+            
+            # Passa a estratégia escolhida para a busca
+            relevant_docs = searcher.search_documents(question, strategy=args.strategy)
+            
+            # Se a estratégia for 'best', o usuário pediu para não mostrar os documentos recuperados no log,
+            # apenas as estatísticas (que já são mostradas pelo searcher).
+            # Então passamos uma função de print vazia para o format_context se strategy == 'best'.
+            context_printer = verbose_print
+            if args.strategy == 'best':
+                def no_op(*args, **kwargs): pass
+                context_printer = no_op
 
-            relevant_docs = searcher.search_documents(question)
-            context = format_context(relevant_docs, verbose_print) if relevant_docs else ""
+            context = format_context(relevant_docs, context_printer) if relevant_docs else ""
             
             if not context:
                 verbose_print("Nenhum documento relevante encontrado para a consulta.")
