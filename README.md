@@ -105,6 +105,11 @@ python -m src.ingest --provider openai
 python -m src.ingest --provider google --path /caminho/para/seu/arquivo.pdf
 ```
 
+**Para especificar uma coleção diferente:** (Útil para organizar documentos por tema)
+```bash
+python -m src.ingest --collection "minha_colecao"
+```
+
 ### 4. Inicie o Chat
 
 Execute o script de chat, especificando o mesmo provedor usado na ingestão.
