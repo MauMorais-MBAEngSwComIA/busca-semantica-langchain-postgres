@@ -13,7 +13,7 @@ Este projeto é uma demonstração de um sistema de busca semântica e chat (RAG
 
 - **Linguagem**: Python 3.10+
 - **Orquestração LLM**: LangChain
-- **Provedores de Modelos**: Google Gemini, OpenAI
+- **Provedores de Modelos**: Google Gemini (`gemini-2.5-flash-lite`), OpenAI (`gpt-5-nano`)
 - **Banco de Dados Vetorial**: PostgreSQL 16 com `pgvector`
 - **Containerização**: Docker e Docker Compose
 
@@ -130,7 +130,7 @@ python -m src.chat --provider openai
     - `default`: Busca vetorial padrão.
     - `hyde`: Gera uma resposta hipotética e busca por similaridade com ela.
     - `query2doc`: Expande a pergunta com uma resposta preliminar antes da busca.
-    - `iter-retgen`: Realiza um ciclo de 2 iterações (Draft -> Busca de Lacunas -> Refinamento) para aprimorar o contexto. Identifica e preenche dados faltantes automaticamente.
+    - `iter-retgen`: Realiza um ciclo de refinamento iterativo (Draft -> Busca de Lacunas -> Refinamento), com uma fase extra de **Expansão** automática se a resposta for considerada superficial.
     - `best`: (Recomendado) Testa as quatro estratégias (`default`, `hyde`, `query2doc`, `iter-retgen`) e usa a que tiver o melhor score de similaridade.
     
     Exemplo:

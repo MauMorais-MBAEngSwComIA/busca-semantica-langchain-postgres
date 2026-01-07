@@ -67,14 +67,13 @@ class DocumentSearcher:
         self.verbose_print(f"Query expandida:\n{expanded_query[:200]}...")
         return expanded_query
 
-        if strategy == 'iter-retgen':
-            return self._generate_iter_retgen_context(query, k)
 
     def _generate_iter_retgen_context(self, query: str, k: int) -> str:
         """
         Executa o processo ITER-RETGEN (Iterative Retrieval-Generation) com placeholders [MISSING].
         """
         self.verbose_print("Iniciando estratégia ITER-RETGEN com refinamento de lacunas...")
+        print("⚠️  Atenção: A estratégia ITER-RETGEN é detalhada e pode levar alguns minutos. Por favor, aguarde...")
         
         # 1. Draft Inicial com [MISSING]
         draft_prompt = """You are an expert assistant with limited initial knowledge.
@@ -154,9 +153,63 @@ class DocumentSearcher:
             })
             self.verbose_print(f"Draft Refinado ({i+1}):\n{current_draft[:200]}...")
 
-        # O retorno é o texto usado para a BUSCA final dos documentos que serão entregues ao chat
-        # Como o objetivo do search_documents é retornar DOCUMENTOS, usamos a última query de busca enriquecida.
-        # (Opcionalmente poderíamos retornar o próprio draft gerado, mas o contrato da classe é retornar docs)
+        # 3. Fase de Expansão (Expansion Phase) - v1.3.0
+        # Analisa o rascunho final para ver se pode ser enriquecido
+        self.verbose_print("--- Fase de Expansão ---")
+        expansion_prompt = """Review this draft answer:
+        {draft}
+        
+        Identify areas that could benefit from MORE specific information.
+        Add new [MISSING: ...] markers for:
+        - Technical details that were glossed over
+        - Specific examples that would clarify concepts
+        - Comparative data that would add context
+        - Implementation specifics that developers would need
+        
+        Return the same text but with ADDITIONAL [MISSING: ...] markers for deeper details.
+        If the answer is already comprehensive, do not add any markers."""
+        
+        expanded_draft = self._generate_text(expansion_prompt, {"draft": current_draft})
+        new_gaps_count = expanded_draft.count("[MISSING:")
+        
+        if new_gaps_count > 0:
+            self.verbose_print(f"Expansão identificou {new_gaps_count} novas lacunas. Iniciando iteração extra...")
+            current_draft = expanded_draft
+            
+            # --- Iteração Extra (Expansão) ---
+            query_prompt_exp = """You received the following draft with gaps:
+            {draft}
+            
+            For each [MISSING: ...] marker, provide information to fill that gap.
+            List information for each gap."""
+            
+            gap_info = self._generate_text(query_prompt_exp, {"draft": current_draft})
+            
+            search_query_text = f"{query} {gap_info}"
+            docs = self.db.similarity_search_with_score(search_query_text, k=k)
+            retrieved_context = "\n\n".join([d.page_content for d, _ in docs])
+            
+            fill_prompt_exp = """Original question: {query}
+            Current draft:
+            {draft}
+            Information to help fill the gaps:
+            {context}
+            
+            Rewrite the ENTIRE answer with the [MISSING:] markers replaced with detailed information."""
+            
+            current_draft = self._generate_text(fill_prompt_exp, {
+                "query": query, 
+                "draft": current_draft, 
+                "context": retrieved_context
+            })
+            self.verbose_print(f"Draft Final Expandido:\n{current_draft[:200]}...")
+            
+            # Atualiza a query de busca final com o texto expandido
+            search_query_text = f"{query} {current_draft}"
+        else:
+            self.verbose_print("Nenhuma expansão necessária. O rascunho já está completo.")
+            search_query_text = f"{query} {current_draft}"
+
         return search_query_text
 
     def search_documents(self, query: str, k: int = 10, strategy: str = 'default'):

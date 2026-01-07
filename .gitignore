@@ -17,3 +17,7 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+
+#reference docs
+referencias/
+
