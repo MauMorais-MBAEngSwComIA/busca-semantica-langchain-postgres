@@ -43,10 +43,12 @@ class DocumentSearcher:
 
     def _generate_hyde_doc(self, query: str) -> str:
         """Gera um documento hipotético para a query (HyDE)."""
-        prompt = """Escreva uma passagem de texto que responda à seguinte pergunta. 
-Fale como se fosse um trecho de um documento técnico ou informativo.
-Pergunta: {query}
-Passagem:"""
+        prompt = """Escreva um parágrafo conciso que responda de forma clara à pergunta abaixo. 
+        A resposta deve parecer um documento real, com datas, fatos ou descrições prováveis, 
+        mesmo que hipotéticas. 
+        Não use linguagem especulativa (não diga "talvez" ou "possivelmente").
+        Pergunta: {query}
+        Texto: """
         self.verbose_print("Gerando documento hipotético (HyDE)...")
         hyde_doc = self._generate_text(prompt, {"query": query})
         self.verbose_print(f"Documento Hipotético gerado:\n{hyde_doc[:200]}...")
@@ -54,9 +56,11 @@ Passagem:"""
 
     def _generate_query2doc_expansion(self, query: str) -> str:
         """Expande a query com uma resposta gerada (Query2Doc)."""
-        prompt = """Responda à seguinte pergunta de forma direta e informativa.
-Pergunta: {query}
-Resposta:"""
+        prompt = """Escreva um texto informativo e neutro, de 100 a 150 palavras, que explique o tópico abaixo. 
+        Inclua definições, termos técnicos, sinônimos e contexto relacionado, mas não dê uma resposta direta 
+        se for uma pergunta.
+        Tópico: {query}
+        Texto: """
         self.verbose_print("Gerando expansão da query (Query2Doc)...")
         answer = self._generate_text(prompt, {"query": query})
         expanded_query = f"{query} {answer}"
